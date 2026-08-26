@@ -65,6 +65,7 @@ function unidades(r){return (r.equipos||[]).reduce((s,eq)=>s+(Number(eq.cantidad
 function entregadosCli(r){if(r.entregaModo==="completa")return unidades(r);if(r.entregaModo==="parcial")return (r.nivsEntrega||[]).filter(e=>e.entregado).length;return 0;}
 function faltanCli(r){return Math.max(0,unidades(r)-entregadosCli(r));}
 function esParcial(r){return r.entregaModo==="parcial";}
+function esDevuelto(r){return !!r.devueltoComercial;}
 const pesos=n=>{const v=Number(n)||0;return v.toLocaleString("es-MX",{style:"currency",currency:"MXN",maximumFractionDigits:0});};
 const MESES_V=["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
 function mesDe(fecha){if(!fecha)return null;const s=String(fecha).slice(0,7);const[a,m]=s.split("-").map(Number);if(!a||!m)return null;return {anio:a,mes:m,key:a+"-"+String(m).padStart(2,"0")};}
@@ -350,6 +351,7 @@ function App(){
   const [busca,setBusca]=useState("");
   const [fEstatus,setFEstatus]=useState("");
   const [fParcial,setFParcial]=useState(false);
+  const [fDevuelto,setFDevuelto]=useState(false);
   const [orden,setOrden]=useState("Predeterminado");
   const [editando,setEditando]=useState(null);
   const [aviso,setAviso]=useState(null);
@@ -365,8 +367,8 @@ function App(){
   const cliPorEjec=useMemo(()=>{const m={};registros.forEach(r=>{if(!r.ejecutivo)return;(m[r.ejecutivo]=m[r.ejecutivo]||new Set()).add(r.cliente);});const o={};Object.keys(m).forEach(k=>o[k]=[...m[k]].filter(Boolean).sort());return Object.keys(o).length?o:CLI_DEF;},[registros]);
   const clientesOpc=fEjec==="Todos"?["Todos",...new Set(Object.values(cliPorEjec).flat())]:["Todos",...(cliPorEjec[fEjec]||[])];
 
-  const pasa=r=>(fEjec==="Todos"||r.ejecutivo===fEjec)&&(fCli==="Todos"||r.cliente===fCli)&&(!busca||(()=>{const h=quita((r.cliente||"")+" "+(r.niv||"")+" "+(r.folioVenta||"")+" "+(r.folioJJ||"")+" "+(r.telefono||"")+" "+(r.ejecutivo||"")+" "+(r.empresa||"")+" "+(r.tipoContrato||"")+" "+((r.equipos||[]).map(e=>e.tipo).join(" ")));return quita(busca).split(" ").filter(Boolean).every(w=>h.includes(w));})())&&(fEstatus===""||r.estatus===fEstatus)&&(!fParcial||esParcial(r));
-  const visibles=useMemo(()=>registros.filter(pasa),[registros,fEjec,fCli,busca,fEstatus,fParcial]);
+  const pasa=r=>(fEjec==="Todos"||r.ejecutivo===fEjec)&&(fCli==="Todos"||r.cliente===fCli)&&(!busca||(()=>{const h=quita((r.cliente||"")+" "+(r.niv||"")+" "+(r.folioVenta||"")+" "+(r.folioJJ||"")+" "+(r.telefono||"")+" "+(r.ejecutivo||"")+" "+(r.empresa||"")+" "+(r.tipoContrato||"")+" "+((r.equipos||[]).map(e=>e.tipo).join(" ")));return quita(busca).split(" ").filter(Boolean).every(w=>h.includes(w));})())&&(fEstatus===""||r.estatus===fEstatus)&&(!fParcial||esParcial(r))&&(!fDevuelto||esDevuelto(r));
+  const visibles=useMemo(()=>registros.filter(pasa),[registros,fEjec,fCli,busca,fEstatus,fParcial,fDevuelto]);
   const porEjec=useMemo(()=>registros.filter(r=>fEjec==="Todos"||r.ejecutivo===fEjec),[registros,fEjec]);
   const etapaCounts=useMemo(()=>ESTATUS.map(e=>({est:e,n:porEjec.filter(r=>r.estatus===e).length})),[porEjec]);
   const ordenados=useMemo(()=>{const peso={vencido:0,proximo:1,programado:2};return [...visibles].sort((a,b)=>{const ea=estadoCompromiso(a,now),eb=estadoCompromiso(b,now);const pa=ea?peso[ea]:9,pb=eb?peso[eb]:9;if(pa!==pb)return pa-pb;return a.cliente.localeCompare(b.cliente);});},[visibles,now]);
@@ -392,6 +394,9 @@ function App(){
   const parcialClientes=parciales.length;
   const parcialEntregados=parciales.reduce((s,r)=>s+entregadosCli(r),0);
   const parcialFaltan=parciales.reduce((s,r)=>s+faltanCli(r),0);
+  const devueltos=porEjec.filter(esDevuelto);
+  const devueltoClientes=devueltos.length;
+  const devueltoEquipos=devueltos.reduce((s,r)=>s+unidades(r),0);
 
   const guardar=reg=>{const id=reg.id||(Math.max(0,...registros.map(x=>x.id))+1);const saved=normEst({...reg,id});if((saved.estatuses||[]).includes("Entregado")){if(!saved.fechaEntregadoMarcado)saved.fechaEntregadoMarcado=HOY;}else{saved.fechaEntregadoMarcado="";}setRegistros(prev=>prev.some(r=>r.id===id)?prev.map(r=>r.id===id?saved:r):[...prev,saved]);setEditando(null);if(CLOUD){setSync("Guardando…");apiSave(saved).then(()=>setSync("Guardado en la nube ✓")).catch(()=>setSync("⚠ Error al guardar en la nube"));}};
   const marcarLlamada=id=>{setRegistros(prev=>prev.map(r=>r.id===id?{...r,compromisoCumplido:true}:r));if(CLOUD){const rec=registros.find(r=>r.id===id);if(rec)apiSave({...rec,compromisoCumplido:true}).catch(()=>{});}};
@@ -451,6 +456,7 @@ function App(){
           <button onClick={()=>{setFEstatus(fEstatus==="Cancelado"?"":"Cancelado");setVista("clientes");}} className={`rounded-xl border bg-white px-4 py-3 text-left transition-all ${fEstatus==="Cancelado"?"border-rose-400 ring-2 ring-rose-200":"border-stone-200 hover:bg-stone-50"}`}><div className="flex items-center gap-1.5 text-slate-400"><Icon name="x" size={16}/><span className="text-xs font-medium text-slate-500">{fEjec==="Todos"?"Cancelados":"Cancelados · "+fEjec}</span></div><p className="mt-1 text-2xl font-bold mono text-rose-600 leading-none">{cancelEquipos}<span className="text-xs font-medium text-slate-400"> equipos</span></p><p className="text-[11px] text-slate-400 mt-0.5">{cancelClientes} cliente(s)</p></button>
           <Kpi icon="truck" label={fEjec==="Todos"?"Pendientes por entregar":"Pend. entregar · "+fEjec} valor={pendEntregar} tono="text-orange-600"/>
           <button onClick={()=>setFParcial(v=>!v)} className={`rounded-xl border bg-white px-4 py-3 text-left transition-all ${fParcial?"border-amber-400 ring-2 ring-amber-200":"border-stone-200 hover:bg-stone-50"}`}><div className="flex items-center gap-1.5 text-slate-400"><Icon name="truck" size={16}/><span className="text-xs font-medium text-slate-500">{fEjec==="Todos"?"Entrega parcial":"Parcial · "+fEjec}</span></div><p className="mt-1 text-2xl font-bold mono text-amber-600 leading-none">{parcialClientes}<span className="text-xs font-medium text-slate-400"> cliente(s)</span></p><p className="text-[11px] text-slate-400 mt-0.5">{parcialEntregados} entregados · {parcialFaltan} por entregar</p></button>
+          <button onClick={()=>setFDevuelto(v=>!v)} className={`rounded-xl border bg-white px-4 py-3 text-left transition-all ${fDevuelto?"border-purple-400 ring-2 ring-purple-200":"border-stone-200 hover:bg-stone-50"}`}><div className="flex items-center gap-1.5 text-slate-400"><Icon name="left" size={16}/><span className="text-xs font-medium text-slate-500">{fEjec==="Todos"?"Devuelto a comercial":"Devuelto · "+fEjec}</span></div><p className="mt-1 text-2xl font-bold mono text-purple-600 leading-none">{devueltoClientes}<span className="text-xs font-medium text-slate-400"> cliente(s)</span></p><p className="text-[11px] text-slate-400 mt-0.5">{devueltoEquipos} equipo(s)</p></button>
           <Kpi icon="alarm" label="Llamadas por hacer" valor={porMarcar} tono={hayVencidas?"text-red-600":"text-slate-900"}/>
           <Kpi icon="clip" label="Expedientes por completar" valor={expIncompletos} tono="text-indigo-600"/>
           <Kpi icon="calendar" label="Entregas próx. 7 días" valor={entregas7} tono="text-emerald-600"/>
@@ -508,14 +514,15 @@ function VistaLista({registros,now,onEdit}){
 
 /* ---------- Expediente bar ---------- */
 function primeraInter(r){const b=(r.bitacora||[]).filter(x=>x.fecha).slice().sort((a,b)=>(a.fecha||"").localeCompare(b.fecha||""));return b[0]||null;}
-function diasEnGestion(r){const p=primeraInter(r);if(!p)return null;return Math.round((parse(HOY)-parse(p.fecha))/86400000);}
+function diasEnGestion(r){const p=primeraInter(r);if(!p)return null;const fin=(r.devueltoComercial&&r.fechaDevuelto)?parse(r.fechaDevuelto):parse(HOY);return Math.max(0,Math.round((fin-parse(p.fecha))/86400000));}
 function Cronometro({r}){
   if(["Entregado","Cancelado"].includes(r.estatus))return null;
   const d=diasEnGestion(r); if(d===null)return null;
+  const pausado=esDevuelto(r);
   const pct=Math.min(100,Math.max(0,d/60*100)); const vencido=d>60;
   const col=d<=20?"text-emerald-600":d<=40?"text-amber-600":d<=60?"text-orange-600":"text-red-600";
   return (<div className="mt-2">
-    <div className="flex items-center justify-between text-xs mb-1"><span className="font-semibold text-slate-600 inline-flex items-center gap-1"><Icon name="clock" size={12}/> Gestión (60 días)</span><span className={`mono font-bold ${col}`}>{vencido?`Vencido +${d-60}d`:`Día ${d} de 60`}</span></div>
+    <div className="flex items-center justify-between text-xs mb-1"><span className="font-semibold text-slate-600 inline-flex items-center gap-1"><Icon name="clock" size={12}/> Gestión (60 días){pausado&&<span className="ml-1 rounded bg-purple-100 px-1 py-0.5 text-[9px] font-bold text-purple-700">⏸ en comercial</span>}</span><span className={`mono font-bold ${col}`}>{vencido?`Vencido +${d-60}d`:`Día ${d} de 60`}</span></div>
     <div className="relative h-2 w-full rounded-full overflow-hidden" style={{background:"linear-gradient(to right,#22c55e 0%,#22c55e 28%,#fbbf24 40%,#f59e0b 60%,#f97316 78%,#ef4444 100%)"}}><div className="absolute -top-0.5 h-3 w-1 rounded bg-slate-900" style={{left:`calc(${pct}% - 2px)`}}></div></div>
     <p className="mt-1 text-[11px] text-slate-400">{vencido?"Fuera del plazo de 60 días":`Quedan ${60-d} días para entregar`}</p>
   </div>);
@@ -538,7 +545,7 @@ function Tarjeta({r,now,onEdit,onListo}){
   const ring=e==="vencido"?"ring-2 ring-red-400 border-red-300":e==="proximo"?"ring-2 ring-amber-400 border-amber-300":"border-stone-200";
   return (<div className={`group relative w-full overflow-hidden rounded-xl border bg-white transition-shadow hover:shadow-md ${ring}`}><span className={`absolute inset-y-0 left-0 w-1.5 ${c.spine}`}></span>
     <button onClick={()=>onEdit(r)} className="block w-full p-4 pl-5 text-left">
-      <div className="flex items-start justify-between gap-2"><div className="flex items-center gap-2 min-w-0">{e && <span className={`h-2.5 w-2.5 rounded-full shrink-0 ${e==="vencido"?"bg-red-500":e==="proximo"?"bg-amber-500":"bg-sky-400"}`}></span>}<div className="min-w-0"><div className="flex items-center gap-1.5"><p className={`font-bold leading-tight truncate ${e==="vencido"?"text-red-700":e==="proximo"?"text-amber-800":"text-slate-900"}`}>{r.cliente}</p></div><p className="text-xs text-slate-500 mt-0.5">{r.ejecutivo}</p>{r.tipoContrato&&<span className={`mt-1 inline-block rounded border px-1.5 py-0.5 text-[10px] font-bold ${r.tipoContrato==="Notariado"?"border-violet-200 bg-violet-50 text-violet-700":"border-sky-200 bg-sky-50 text-sky-700"}`}>Contrato {r.tipoContrato}</span>}{esParcial(r)&&<span className="mt-1 ml-1 inline-block rounded border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-[10px] font-bold text-amber-700">Entrega parcial {entregadosCli(r)}/{unidades(r)}</span>}{(r.folioVenta||r.folioJJ)&&<p className="text-[10px] text-slate-400 mono mt-0.5">{r.folioVenta?`V: ${r.folioVenta}`:""}{r.folioVenta&&r.folioJJ?"  ·  ":""}{r.folioJJ?`JJ: ${r.folioJJ}`:""}</p>}</div></div><div className="flex flex-col items-end gap-1 shrink-0"><Badges r={r}/><div className="flex items-center gap-1"><ClienteTipoTag tc={r.tipoCliente}/><EmpresaTag empresa={r.empresa}/></div></div></div>
+      <div className="flex items-start justify-between gap-2"><div className="flex items-center gap-2 min-w-0">{e && <span className={`h-2.5 w-2.5 rounded-full shrink-0 ${e==="vencido"?"bg-red-500":e==="proximo"?"bg-amber-500":"bg-sky-400"}`}></span>}<div className="min-w-0"><div className="flex items-center gap-1.5"><p className={`font-bold leading-tight truncate ${e==="vencido"?"text-red-700":e==="proximo"?"text-amber-800":"text-slate-900"}`}>{r.cliente}</p></div><p className="text-xs text-slate-500 mt-0.5">{r.ejecutivo}</p>{r.tipoContrato&&<span className={`mt-1 inline-block rounded border px-1.5 py-0.5 text-[10px] font-bold ${r.tipoContrato==="Notariado"?"border-violet-200 bg-violet-50 text-violet-700":"border-sky-200 bg-sky-50 text-sky-700"}`}>Contrato {r.tipoContrato}</span>}{esDevuelto(r)&&<span className="mt-1 ml-1 inline-block rounded border border-purple-300 bg-purple-50 px-1.5 py-0.5 text-[10px] font-bold text-purple-700">Devuelto a comercial</span>}{esParcial(r)&&<span className="mt-1 ml-1 inline-block rounded border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-[10px] font-bold text-amber-700">Entrega parcial {entregadosCli(r)}/{unidades(r)}</span>}{(r.folioVenta||r.folioJJ)&&<p className="text-[10px] text-slate-400 mono mt-0.5">{r.folioVenta?`V: ${r.folioVenta}`:""}{r.folioVenta&&r.folioJJ?"  ·  ":""}{r.folioJJ?`JJ: ${r.folioJJ}`:""}</p>}</div></div><div className="flex flex-col items-end gap-1 shrink-0"><Badges r={r}/><div className="flex items-center gap-1"><ClienteTipoTag tc={r.tipoCliente}/><EmpresaTag empresa={r.empresa}/></div></div></div>
       {eqt && <p className="mt-2 text-xs font-medium text-slate-600 inline-flex items-start gap-1"><Icon name="truck" size={12} className="text-slate-400 mt-0.5 shrink-0"/><span>{eqt}</span></p>}
       {r.niv && <p className="mt-1 text-xs text-slate-500 mono truncate">NIV: {String(r.niv).split(/[\n,]+/).map(x=>x.trim()).filter(Boolean).join(", ")}</p>}{r.tipoVenta && <p className="mt-1 text-xs text-slate-500"><span className="font-semibold text-slate-600">{r.tipoVenta}</span>{r.plazo?` · ${r.plazo} meses`:""}</p>}
       <div className="mt-2 rounded-md bg-stone-50 border border-stone-100 px-2 py-1.5 text-xs">{u?(<div className="flex items-start gap-1.5"><Icon name="history" size={12} className="text-slate-400 mt-0.5 shrink-0"/><div className="min-w-0"><span className="font-semibold text-slate-600">{corto(u.fecha)} · {u.tipo} · </span><ContactoTag contacto={u.contacto} inline/>{u.resultado && <span className="text-slate-600"> — {u.resultado}</span>}<span className="text-slate-400 mono"> · {nb} {nb===1?"interacción":"interacciones"}</span></div></div>):<span className="text-slate-400 inline-flex items-center gap-1"><Icon name="history" size={12}/> Sin interacciones aún</span>}</div>
@@ -561,7 +568,7 @@ function TarjetaMini({r,now,onEdit}){
 /* ---------- Modal ---------- */
 function Modal({inicial,fEjec,ejecutivos,cliPorEjec,onClose,onSave,puedeEditar}){
   const base=inicial||{creado:HOY,ejecutivo:fEjec!=="Todos"?fEjec:(ejecutivos[0]||""),cliente:"",folioVenta:"",folioJJ:"",tipoContrato:"",patioEntrega:"",entregaFabrica:"",archivos:{},tipoCliente:"Cliente Nuevo",empresa:"",correo:"",telefono:"",niv:"",equipos:[{tipo:"",cantidad:1}],tipoVenta:"",plazo:"",adicionales:[],estatuses:["Presentación con Cliente"],estatus:"Presentación con Cliente",requisitos:reqPend("Cliente Nuevo"),queFalta:"",entregaProgramada:"",compromiso:"",compromisoCumplido:false,bitacora:[],notas:""};
-  const [f,setF]=useState({...base,niv:base.niv||"",folioVenta:base.folioVenta||"",folioJJ:base.folioJJ||"",tipoContrato:base.tipoContrato||"",entregaFabrica:base.entregaFabrica||"",patioEntrega:base.patioEntrega||"",estatuses:[...(base.estatuses||(base.estatus?[base.estatus]:[ESTATUS[0]]))],equipos:(base.equipos&&base.equipos.length)?base.equipos.map(e=>({marca:"",anio:"",condicion:"",precio:"",...e})):[{tipo:"",cantidad:1,marca:"",anio:"",condicion:"",precio:""}],adicionales:[...(base.adicionales||[])],requisitos:{...reqPend(base.tipoCliente||"Cliente Nuevo"),...(base.requisitos||{})},archivos:JSON.parse(JSON.stringify(base.archivos||{})),entregaModo:base.entregaModo||"",nivsEntrega:(base.nivsEntrega||[]).map(x=>({niv:x.niv||"",entregado:!!x.entregado})),bitacora:[...(base.bitacora||[])]});
+  const [f,setF]=useState({...base,niv:base.niv||"",folioVenta:base.folioVenta||"",folioJJ:base.folioJJ||"",tipoContrato:base.tipoContrato||"",entregaFabrica:base.entregaFabrica||"",patioEntrega:base.patioEntrega||"",estatuses:[...(base.estatuses||(base.estatus?[base.estatus]:[ESTATUS[0]]))],equipos:(base.equipos&&base.equipos.length)?base.equipos.map(e=>({marca:"",anio:"",condicion:"",precio:"",...e})):[{tipo:"",cantidad:1,marca:"",anio:"",condicion:"",precio:""}],adicionales:[...(base.adicionales||[])],requisitos:{...reqPend(base.tipoCliente||"Cliente Nuevo"),...(base.requisitos||{})},archivos:JSON.parse(JSON.stringify(base.archivos||{})),entregaModo:base.entregaModo||"",nivsEntrega:(base.nivsEntrega||[]).map(x=>({niv:x.niv||"",entregado:!!x.entregado})),devueltoComercial:!!base.devueltoComercial,fechaDevuelto:base.fechaDevuelto||"",motivoDevuelto:base.motivoDevuelto||"",bitacora:[...(base.bitacora||[])]});
   const [subiendo,setSubiendo]=useState("");
   async function subirArchivo(docKey,file){
     if(!puedeEditar){alert("Modo consulta: no puedes subir archivos.");return;}
@@ -595,7 +602,7 @@ function Modal({inicial,fEjec,ejecutivos,cliPorEjec,onClose,onSave,puedeEditar})
   const st=reqStats(f);const valido=f.cliente;const plazosDisp=PLAZOS[f.tipoVenta]||[];
   const bitOrd=[...f.bitacora].sort((a,b)=>(b.fecha||"").localeCompare(a.fecha||"")||(b.id||0)-(a.id||0));
   const inp="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-100";
-  const guardarLimpio=()=>onSave({...f,equipos:f.equipos.filter(e=>e.tipo.trim()).map(e=>({tipo:e.tipo.trim(),cantidad:Number(e.cantidad)||1,marca:e.marca||"",anio:e.anio||"",condicion:e.condicion||"",precio:(e.precio===""||e.precio==null)?"":Number(e.precio)})),entregaModo:f.entregaModo||"",nivsEntrega:(f.nivsEntrega||[]).map(x=>({niv:(x.niv||"").trim(),entregado:!!x.entregado})).filter(x=>x.niv||x.entregado)});
+  const guardarLimpio=()=>onSave({...f,equipos:f.equipos.filter(e=>e.tipo.trim()).map(e=>({tipo:e.tipo.trim(),cantidad:Number(e.cantidad)||1,marca:e.marca||"",anio:e.anio||"",condicion:e.condicion||"",precio:(e.precio===""||e.precio==null)?"":Number(e.precio)})),entregaModo:f.entregaModo||"",nivsEntrega:(f.nivsEntrega||[]).map(x=>({niv:(x.niv||"").trim(),entregado:!!x.entregado})).filter(x=>x.niv||x.entregado),devueltoComercial:!!f.devueltoComercial,fechaDevuelto:f.devueltoComercial?(f.fechaDevuelto||HOY):"",motivoDevuelto:f.devueltoComercial?(f.motivoDevuelto||""):""});
 
   return (<div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-slate-900/40 sm:p-4" onClick={onClose}>
     <div className="w-full sm:max-w-lg max-h-[92vh] overflow-y-auto rounded-t-2xl sm:rounded-2xl bg-white shadow-xl" onClick={e=>e.stopPropagation()}>
@@ -652,6 +659,17 @@ function Modal({inicial,fEjec,ejecutivos,cliPorEjec,onClose,onSave,puedeEditar})
                 <button onClick={()=>setF(p=>({...p,nivsEntrega:p.nivsEntrega.filter((_,j)=>j!==i)}))} className="grid h-7 w-7 shrink-0 place-items-center rounded-md text-slate-400 hover:bg-stone-100 hover:text-red-500"><Icon name="x" size={14}/></button>
               </div>))}</div>
             <button onClick={()=>setF(p=>({...p,nivsEntrega:[...(p.nivsEntrega||[]),{niv:"",entregado:false}]}))} className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-slate-600 hover:text-slate-900"><Icon name="plus" size={14}/> Agregar NIV</button>
+          </div>}
+        </div>
+
+        <div className={`rounded-xl border p-3 ${f.devueltoComercial?"border-purple-300 bg-purple-50/50":"border-stone-200"}`}>
+          <div className="flex items-center justify-between">
+            <div><h3 className="text-sm font-bold text-slate-700 inline-flex items-center gap-1.5"><Icon name="left" size={15}/> Devuelto a comercial</h3><p className="text-[11px] text-slate-400">Para clientes que no responden o no avanzan. Conserva su etapa actual.</p></div>
+            <button onClick={()=>setF(p=>({...p,devueltoComercial:!p.devueltoComercial,fechaDevuelto:!p.devueltoComercial?(p.fechaDevuelto||HOY):p.fechaDevuelto}))} className={`shrink-0 rounded-lg border px-3 py-2 text-xs font-semibold ${f.devueltoComercial?"border-purple-500 bg-purple-600 text-white":"border-stone-300 text-slate-600 hover:bg-stone-50"}`}>{f.devueltoComercial?"✓ Devuelto":"Marcar devuelto"}</button>
+          </div>
+          {f.devueltoComercial && <div className="mt-2 grid gap-2 sm:grid-cols-3">
+            <label className="text-xs"><span className="text-slate-500 font-medium">Fecha</span><input type="date" value={f.fechaDevuelto||""} onChange={e=>setF(p=>({...p,fechaDevuelto:e.target.value}))} className="mt-1 w-full rounded-lg border border-stone-300 bg-white px-2 py-1.5 text-sm outline-none focus:border-purple-400"/></label>
+            <label className="text-xs sm:col-span-2"><span className="text-slate-500 font-medium">Motivo (opcional)</span><input value={f.motivoDevuelto||""} onChange={e=>setF(p=>({...p,motivoDevuelto:e.target.value}))} placeholder="Ej. no responde, sin avance…" className="mt-1 w-full rounded-lg border border-stone-300 bg-white px-2 py-1.5 text-sm outline-none focus:border-purple-400"/></label>
           </div>}
         </div>
 
@@ -714,4 +732,5 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
 </script>
 </body>
 </html>
+
 
