@@ -2,14 +2,49 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Seguimiento a Clientes · HT Rent</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<meta name="theme-color" content="#0B3D66" />
+<title>Seguimiento a Clientes | HT Rent</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Saira:ital,wght@1,700;1,800&display=swap" rel="stylesheet">
 <script src="https://cdn.tailwindcss.com"></script>
+<script>
+/* Imagen institucional HT Rent (misma paleta que Autorización de Gastos y Facturas) */
+tailwind.config={theme:{extend:{
+  fontFamily:{sans:['Barlow','Segoe UI','Roboto','Arial','sans-serif'],display:['Saira','Arial Narrow','Arial','sans-serif']},
+  borderRadius:{md:'3px',lg:'4px',xl:'4px','2xl':'6px'},
+  colors:{
+    navy:{DEFAULT:'#0B3D66',2:'#0F4C7E',edge:'#4B5B7C'},
+    lime:{DEFAULT:'#3CE81E',ink:'#1B7F0A',soft:'#E4FADF',dark:'#0A2A0E'},
+    slate:{50:'#F1F4F9',100:'#E1E6EE',200:'#CBD3E0',300:'#A9B5C9',400:'#7E8BA3',500:'#5A6680',600:'#44506B',700:'#26365E',800:'#0F4C7E',900:'#0B3D66'},
+    stone:{50:'#F4F6F9',100:'#E8ECF2',200:'#D5DBE5',300:'#C3CBD8',400:'#9AA6B8',500:'#7E8BA3',600:'#5A6680',700:'#26365E',800:'#0B3D66',900:'#0B3D66'},
+    emerald:{50:'#E4FADF',100:'#CFF5C6',200:'#A6EE95',300:'#7BE765',400:'#52E236',500:'#3CE81E',600:'#1B7F0A',700:'#1B7F0A',800:'#145F08'},
+    teal:{50:'#E6EEF6',100:'#CFDDEC',200:'#A9C1DB',300:'#7FA2C6',400:'#4F7FAE',500:'#1F5C92',600:'#0F4C7E',700:'#0B3D66',800:'#082F4F'},
+    indigo:{50:'#E6EEF6',100:'#CFDDEC',200:'#A9C1DB',300:'#7FA2C6',400:'#4F7FAE',500:'#1F5C92',600:'#0F4C7E',700:'#0B3D66',800:'#082F4F'},
+    rose:{50:'#FBE6E4',100:'#F6CFCB',200:'#EDA79F',300:'#E07D73',400:'#D2584C',500:'#C63A2F',600:'#C63A2F',700:'#A52F26',800:'#83251E'},
+    orange:{50:'#FDF1D6',100:'#FBE3AD',200:'#F7CF7A',300:'#F4BF55',400:'#F2B233',500:'#D89A12',600:'#B57A00',700:'#8F6000',800:'#6B4800'},
+    red:{50:'#FBE6E4',100:'#F6CFCB',200:'#EDA79F',300:'#E07D73',400:'#D2584C',500:'#C63A2F',600:'#C63A2F',700:'#A52F26',800:'#83251E'}
+  }
+}}};
+</script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.6/babel.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<style>body{background:#fafaf9;} .mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;}</style>
+<style>
+:root{--navy:#0B3D66;--lime:#3CE81E;--bg:#EDF0F5;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+body{background:var(--bg);font-family:'Barlow','Segoe UI',Roboto,Arial,sans-serif;font-size:15px;color:#15203B;-webkit-font-smoothing:antialiased}
+.mono{font-family:Consolas,'Courier New',monospace;font-variant-numeric:tabular-nums}
+/* Cifras grandes con la tipografía de marca */
+.text-2xl.mono,.text-lg.mono{font-family:'Saira','Arial Narrow',Arial,sans-serif;font-style:italic;font-weight:800;letter-spacing:.01em}
+.font-display{font-family:'Saira','Arial Narrow',Arial,sans-serif;font-style:italic;font-weight:800}
+:focus-visible{outline:3px solid var(--lime);outline-offset:2px}
+.marca-ht b{display:block;font-family:'Saira',Arial,sans-serif;font-style:italic;font-weight:800;color:var(--lime);font-size:clamp(20px,3vw,30px);line-height:1}
+.marca-ht span{font-family:'Saira',Arial,sans-serif;font-style:italic;font-weight:700;color:#fff;font-size:11px;letter-spacing:.06em}
+@media (max-width:600px){.marca-ht{display:none}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
 </head>
 <body>
 <div id="root"></div>
@@ -230,22 +265,24 @@ function construirLibro(registros){const wb=XLSX.utils.book_new();const de=detal
 
 function Puerta({onEntrar}){
   const [v,setV]=useState("");const [err,setErr]=useState("");const [verif,setVerif]=useState(false);
-  const inpP="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-100";
+  const inpP="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm outline-none focus:border-navy focus:ring-2 focus:ring-lime-soft";
   const probar=async()=>{const p=v.trim();if(!p||verif)return;setVerif(true);setErr("");
     try{const nivel=await apiLogin(p);
       if(nivel==="edit"||nivel==="ver"){SESION_PASS=p;onEntrar(nivel);return;}
       setErr("Contraseña incorrecta.");
     }catch(e){setErr("No se pudo conectar con el servidor: "+e.message);}
     finally{setVerif(false);}};
-  return (<div className="grid min-h-screen place-items-center px-5">
-    <div className="w-full max-w-sm overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-sm">
-      <div className="h-1 bg-amber-500"></div>
+  return (<div className="grid min-h-screen place-items-center bg-navy px-5">
+    <div className="w-full max-w-sm overflow-hidden rounded-lg border-2 border-navy-edge bg-white shadow-xl">
+      <div className="border-b-[5px] border-lime bg-navy px-6 py-5">
+        <div className="marca-ht" style={{display:"block"}}><b>HT RENT &gt;</b><span>ARRENDA Y CRECE</span></div>
+      </div>
       <div className="p-6">
-        <div className="mb-4"><h1 className="text-lg font-bold tracking-tight text-slate-900">Seguimiento a Clientes</h1><p className="mono text-xs text-slate-500 mt-1">SERVICIO A CLIENTES · HT RENT</p></div>
+        <div className="mb-4"><h1 className="font-display text-2xl leading-tight text-navy">Seguimiento a Clientes</h1><p className="text-sm text-slate-500 mt-1">Servicio a Clientes</p></div>
         <p className="mb-3 text-sm text-slate-500">Escribe tu contraseña para entrar.</p>
         <input type="password" value={v} autoFocus onChange={e=>{setV(e.target.value);setErr("");}} onKeyDown={e=>{if(e.key==="Enter")probar();}} className={inpP} placeholder="Contraseña"/>
         {err && <p className="mt-2 text-xs font-semibold text-red-600">{err}</p>}
-        <button onClick={probar} disabled={verif} className="mt-3 w-full rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-60">{verif?"Verificando…":"Entrar"}</button>
+        <button onClick={probar} disabled={verif} className="mt-3 w-full rounded-lg border border-lime bg-lime px-4 py-2.5 text-sm font-bold text-lime-dark hover:brightness-95 disabled:opacity-60">{verif?"Verificando…":"Entrar"}</button>
         <p className="mt-3 text-[11px] leading-relaxed text-slate-400">Con la contraseña de consulta puedes ver toda la información. Para capturar o modificar necesitas la contraseña de edición.</p>
       </div>
     </div>
@@ -434,18 +471,27 @@ function App(){
   if(!modo) return <Puerta onEntrar={setModo}/>;
 
   return (
-    <div className="min-h-screen text-slate-800" style={{fontFamily:"ui-sans-serif,system-ui,'Segoe UI',Roboto,sans-serif"}}>
-      <header className="border-b border-stone-200 bg-white">
-        <div className="h-1 bg-amber-500"></div>
-        <div className="mx-auto max-w-6xl px-5 py-4 flex items-center justify-between gap-4 flex-wrap"><div className="flex items-center gap-3"><div className="grid h-10 w-10 place-items-center rounded-lg bg-slate-900 text-amber-400"><Icon name="truck" size={20}/></div><div><h1 className="text-lg font-bold tracking-tight text-slate-900 leading-none">Seguimiento a Clientes</h1><p className="text-xs text-slate-500 mt-1 mono">SERVICIO A CLIENTES · HT RENT</p></div></div><div className="flex items-center gap-2">
-          <button onClick={()=>setModo(null)} title="Cambiar de modo" className={`rounded-lg border px-2.5 py-1.5 text-xs font-bold ${puedeEditar?"border-emerald-300 bg-emerald-50 text-emerald-700":"border-stone-300 bg-stone-50 text-slate-500"}`}>{puedeEditar?"✎ Edición":"👁 Solo consulta"}</button>
-          {puedeEditar && <button onClick={()=>setEditando("nuevo")} className="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-3.5 py-2 text-sm font-semibold text-white hover:bg-slate-800"><Icon name="plus" size={16}/> Nuevo cliente</button>}
-        </div></div>
+    <div className="min-h-screen text-slate-800">
+      <header className="border-b-[5px] border-lime bg-navy">
+        <div className="mx-auto max-w-6xl px-5 py-3.5 flex items-center justify-between gap-4">
+          <h1 className="font-display text-white leading-none" style={{fontSize:"clamp(20px,3.2vw,32px)"}}>Seguimiento a Clientes<small className="block mt-1 font-sans not-italic font-medium text-[13px]" style={{color:"#B9C8DC"}}>Servicio a Clientes · Operaciones</small></h1>
+          <div className="marca-ht text-right shrink-0" aria-label="HT Rent, arrenda y crece"><b>HT RENT &gt;</b><span>ARRENDA Y CRECE</span></div>
+        </div>
       </header>
+      <div className="border-b border-stone-200 bg-white">
+        <div className="mx-auto max-w-6xl px-5 py-2.5 flex items-center gap-3 flex-wrap">
+          <button onClick={()=>setModo(null)} title="Cambiar de contraseña o modo" className="rounded-full border border-stone-200 px-3 py-1 text-xs font-semibold text-slate-500 hover:border-slate-400">{puedeEditar?"Modo edición":"Solo consulta"} · cambiar</button>
+          <span className="flex-1"></span>
+          {sync && <span className="text-xs font-semibold text-slate-500">{sync}</span>}
+          <button onClick={recargar} className="rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:border-slate-400">Recargar</button>
+          <button onClick={exportar} className="inline-flex items-center gap-1.5 rounded-lg border border-navy-edge bg-navy px-3.5 py-2 text-sm font-semibold text-white hover:bg-navy-2"><Icon name="download" size={15}/> Exportar Excel</button>
+          {puedeEditar && <button onClick={()=>setEditando("nuevo")} className="inline-flex items-center gap-2 rounded-lg border border-lime bg-lime px-4 py-2 text-sm font-bold text-lime-dark hover:brightness-95"><Icon name="plus" size={16}/> Nuevo cliente</button>}
+        </div>
+      </div>
 
       <main className="mx-auto max-w-6xl px-5 py-5">
-        {cargando && <div className="mb-4 rounded-lg bg-sky-50 text-sky-700 px-3 py-2 text-sm font-medium">Cargando datos de la nube…</div>}
-        <div className="mb-5 rounded-xl border border-stone-200 bg-white p-3">
+        {cargando && <div className="mb-4 rounded-lg border border-l-[6px] border-lime bg-navy px-4 py-3 text-sm font-medium text-white">Cargando clientes…</div>}
+        {!CLOUD && <div className="mb-5 rounded-xl border border-stone-200 bg-white p-3">
           <div className="flex flex-wrap items-center gap-2">
             {puedeEditar && !CLOUD && <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-stone-300 bg-white px-3 py-1.5 text-sm font-semibold text-slate-700 hover:bg-stone-50"><Icon name="upload" size={15}/> Subir Excel / CSV<input type="file" accept=".xlsx,.xls,.csv" onChange={onArchivo} className="hidden"/></label>}
             <button onClick={exportar} className="inline-flex items-center gap-1.5 rounded-lg border border-stone-300 bg-white px-3 py-1.5 text-sm font-semibold text-slate-700 hover:bg-stone-50"><Icon name="download" size={15}/> Exportar Excel</button>
@@ -454,7 +500,8 @@ function App(){
           </div>
           {aviso && <div className={`mt-2 rounded-md px-3 py-1.5 text-xs font-medium ${aviso.tipo==="ok"?"bg-emerald-50 text-emerald-700":aviso.tipo==="error"?"bg-red-50 text-red-700":"bg-sky-50 text-sky-700"}`}>{aviso.texto}</div>}
           {CLOUD && <div className="mt-2 flex flex-wrap items-center gap-2 border-t border-stone-100 pt-2"><span className="text-xs font-semibold text-slate-500">Nube (Supabase):</span><button onClick={recargar} className="rounded-lg border border-stone-300 px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-stone-50">Recargar</button>{sync && <span className="text-xs font-medium text-slate-600">{sync}</span>}</div>}
-        </div>
+        </div>}
+        {CLOUD && aviso && <div role="status" className={`mb-5 rounded-lg border border-l-[6px] px-4 py-3 text-sm font-medium ${aviso.tipo==="error"?"border-red-500 bg-red-50 text-red-700":aviso.tipo==="ok"?"border-lime bg-lime-soft text-lime-ink":"border-navy-edge bg-white text-navy"}`}>{aviso.texto} {aviso.tipo==="error" && <button onClick={()=>{setAviso(null);recargar();}} className="ml-2 underline font-bold">Reintentar</button>}</div>}
 
         {urgentes.length>0 && <Banner urgentes={urgentes} now={now} onEdit={setEditando} onListo={marcarLlamada} hayVencidas={hayVencidas}/>}
 
@@ -473,7 +520,7 @@ function App(){
         <TableroEtapas counts={etapaCounts} total={porEjec.length} activo={fEstatus} onPick={est=>{setFEstatus(fEstatus===est?"":est);setVista("clientes");}}/>
 
         <div className="flex items-center justify-between gap-3 flex-wrap mb-4">
-          <div className="inline-flex rounded-lg border border-stone-300 bg-white p-0.5"><Tab activo={vista==="clientes"} onClick={()=>setVista("clientes")}>Clientes</Tab><Tab activo={vista==="tablero"} onClick={()=>setVista("tablero")}>Tablero</Tab><Tab activo={vista==="lista"} onClick={()=>setVista("lista")}>Lista</Tab><Tab activo={vista==="dia"} onClick={()=>setVista("dia")}>Día</Tab><Tab activo={vista==="ventas"} onClick={()=>setVista("ventas")}>Ventas y Entregas</Tab></div>
+          <div className="flex flex-wrap gap-1 border-b-[3px] border-navy"><Tab activo={vista==="clientes"} onClick={()=>setVista("clientes")}>Clientes</Tab><Tab activo={vista==="tablero"} onClick={()=>setVista("tablero")}>Tablero</Tab><Tab activo={vista==="lista"} onClick={()=>setVista("lista")}>Lista</Tab><Tab activo={vista==="dia"} onClick={()=>setVista("dia")}>Día</Tab><Tab activo={vista==="ventas"} onClick={()=>setVista("ventas")}>Ventas y Entregas</Tab></div>
           <div className="flex items-center gap-2 flex-wrap">
             <div className="flex items-center gap-1.5 rounded-lg border border-stone-300 bg-white px-2.5"><Icon name="search" size={14} className="text-slate-400"/><input value={busca} onChange={e=>setBusca(e.target.value)} placeholder="Buscar cliente, NIV, folio, tel…" className="py-1.5 text-sm outline-none w-48"/></div>
             <Select value={fEjec} onChange={cambiarEjec} options={["Todos",...ejecutivos]} prefijo="Ejecutivo"/>
@@ -624,9 +671,9 @@ function Modal({inicial,fEjec,ejecutivos,cliPorEjec,onClose,onSave,puedeEditar})
   const inp="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-100";
   const guardarLimpio=()=>onSave({...f,equipos:f.equipos.filter(e=>e.tipo.trim()).map(e=>({tipo:e.tipo.trim(),cantidad:Number(e.cantidad)||1,marca:e.marca||"",anio:e.anio||"",condicion:e.condicion||"",precio:(e.precio===""||e.precio==null)?"":Number(e.precio)})),entregaModo:f.entregaModo||"",nivsEntrega:(f.nivsEntrega||[]).map(x=>({niv:(x.niv||"").trim(),entregado:!!x.entregado})).filter(x=>x.niv||x.entregado),devueltoComercial:!!f.devueltoComercial,fechaDevuelto:f.devueltoComercial?(f.fechaDevuelto||HOY):"",motivoDevuelto:f.devueltoComercial?(f.motivoDevuelto||""):""});
 
-  return (<div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-slate-900/40 sm:p-4" onClick={onClose}>
-    <div className="w-full sm:max-w-lg max-h-[92vh] overflow-y-auto rounded-t-2xl sm:rounded-2xl bg-white shadow-xl" onClick={e=>e.stopPropagation()}>
-      <div className="sticky top-0 z-10 flex items-center justify-between border-b border-stone-200 bg-white px-5 py-3.5 rounded-t-2xl"><h2 className="font-bold text-slate-900">{inicial?"Ficha del cliente":"Nuevo cliente"}</h2><button onClick={onClose} className="grid h-8 w-8 place-items-center rounded-md hover:bg-stone-100 text-slate-500"><Icon name="x" size={18}/></button></div>
+  return (<div className="fixed inset-0 z-50 flex justify-end" style={{background:"rgba(5,15,30,.55)"}} onClick={onClose}>
+    <div className="h-full w-full sm:max-w-2xl overflow-y-auto bg-white shadow-2xl" style={{paddingBottom:"env(safe-area-inset-bottom,0px)"}} onClick={e=>e.stopPropagation()}>
+      <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b-4 border-lime bg-navy px-5 py-3.5" style={{paddingTop:"calc(14px + env(safe-area-inset-top,0px))"}}><h2 className="font-display text-xl text-white leading-tight truncate">{inicial?(inicial.cliente||"Ficha del cliente"):"Nuevo cliente"}</h2><button onClick={onClose} aria-label="Cerrar" className="grid h-9 w-9 shrink-0 place-items-center rounded border border-navy-edge text-white hover:bg-navy-2"><Icon name="x" size={18}/></button></div>
       <datalist id="dl-ejec">{ejecutivos.map(x=><option key={x} value={x}/>)}</datalist>
       <datalist id="dl-cli">{clientesSug.map(x=><option key={x} value={x}/>)}</datalist>
       <datalist id="dl-emp">{EMPRESAS.map(x=><option key={x} value={x}/>)}</datalist>
@@ -719,7 +766,7 @@ function Modal({inicial,fEjec,ejecutivos,cliPorEjec,onClose,onSave,puedeEditar})
         <div className="grid grid-cols-2 gap-3"><Campo label="Entrega de fábrica o taller" hint="Cuándo llega el equipo"><input type="date" value={f.entregaFabrica} onChange={e=>set("entregaFabrica",e.target.value)} className={inp}/></Campo><Campo label="Fecha de entrega al cliente"><input type="date" value={f.entregaProgramada} onChange={e=>set("entregaProgramada",e.target.value)} className={inp}/></Campo></div>
         <Campo label="Notas (opcional)"><textarea value={f.notas} onChange={e=>set("notas",e.target.value)} rows={2} className={inp}/></Campo>
       </div>
-      <div className="sticky bottom-0 flex justify-end gap-2 border-t border-stone-200 bg-white px-5 py-3"><button onClick={onClose} className="rounded-lg px-3.5 py-2 text-sm font-semibold text-slate-600 hover:bg-stone-100">Cancelar</button><button onClick={()=>valido&&guardarLimpio()} disabled={!valido||!puedeEditar} title={puedeEditar?"":"Modo consulta: no puedes guardar"} className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-40">{inicial?"Guardar cambios":"Crear cliente"}</button></div>
+      <div className="sticky bottom-0 flex justify-end gap-2 border-t border-stone-200 bg-white px-5 py-3"><button onClick={onClose} className="rounded-lg px-3.5 py-2 text-sm font-semibold text-slate-600 hover:bg-stone-100">Cancelar</button><button onClick={()=>valido&&guardarLimpio()} disabled={!valido||!puedeEditar} title={puedeEditar?"":"Modo consulta: no puedes guardar"} className="rounded-lg border border-lime bg-lime px-5 py-2 text-sm font-bold text-lime-dark hover:brightness-95 disabled:opacity-40">{inicial?"Guardar cambios":"Crear cliente"}</button></div>
     </div>
   </div>);
 }
@@ -744,7 +791,7 @@ function TableroEtapas({counts,total,activo,onPick}){
   );
 }
 function Kpi({icon,label,valor,tono}){return <div className="rounded-xl border border-stone-200 bg-white px-4 py-3"><div className="flex items-center gap-1.5 text-slate-400"><Icon name={icon} size={16}/><span className="text-xs font-medium text-slate-500">{label}</span></div><p className={`mt-1 text-2xl font-bold mono ${tono}`}>{valor}</p></div>;}
-function Tab({activo,onClick,children}){return <button onClick={onClick} className={`rounded-md px-3 py-1.5 text-sm font-semibold ${activo?"bg-slate-900 text-white":"text-slate-600 hover:bg-stone-100"}`}>{children}</button>;}
+function Tab({activo,onClick,children}){return <button onClick={onClick} className={`rounded-t px-4 py-2.5 text-sm font-semibold ${activo?"bg-navy text-white":"text-slate-500 hover:text-navy"}`} aria-selected={activo}>{children}</button>;}
 function Select({value,onChange,options,prefijo}){return <select value={value} onChange={e=>onChange(e.target.value)} className="rounded-lg border border-stone-300 bg-white px-2.5 py-1.5 text-sm text-slate-700 outline-none focus:border-slate-400 max-w-[180px]">{options.map(o=><option key={o} value={o}>{o==="Todos"?`${prefijo}: Todos`:o}</option>)}</select>;}
 function Vacio({texto}){return <div className="rounded-xl border border-dashed border-stone-300 bg-white py-12 text-center"><Icon name="calendar" size={28} className="mx-auto text-stone-300"/><p className="mt-2 text-sm text-slate-500 max-w-xs mx-auto">{texto}</p></div>;}
 
