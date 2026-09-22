@@ -17,21 +17,25 @@
 const { useState, useMemo, useEffect } = React;
 
 /* ============================================================
-   CONFIGURA EL BACKEND  —  INSTALACIÓN EQUIPO (Roger + ejecutivos)
-   1) Pega la URL que termina en /exec de tu Apps Script en API_URL
-   2) Pon EXACTAMENTE el mismo token en API_TOKEN
-   Si las dejas vacías, la app funciona en modo local (sin nube).
+   BACKEND  —  INSTALACIÓN EQUIPO (Roger + ejecutivos)
+   Datos: Supabase (proyecto plataforma-ht · tablas sc_*).
+   Las contraseñas ya NO están en este archivo: se validan en el servidor.
+   Para cambiarlas: Supabase > SQL Editor (ver instrucciones de migración).
+   Archivos del expediente (fotos/PDF): siguen subiéndose a Google Drive
+   mediante el Apps Script (UPLOAD_URL / UPLOAD_TOKEN).
    ============================================================ */
-const API_URL = "https://script.google.com/macros/s/AKfycbx6vvoulFJC3CqQ6XEMi_06bKYpEEe6E6Vn8y088PSCh-ZenOMdmH7bqfhbVGbuLcUkDw/exec";
-const API_TOKEN = "EQUIPO-2026-bB2";
-
-/* ---- CONTRASEÑAS DE ACCESO (cámbialas cuando quieras) ---- */
-const PASS_VER  = "1234";            // solo consultar
-const PASS_EDIT = "Ht_R3nt2026";     // consultar y editar
-const CLOUD = API_URL.length > 10;
-async function apiList(){const r=await fetch(`${API_URL}?action=list&token=${encodeURIComponent(API_TOKEN)}`);const j=await r.json();if(!j.ok)throw new Error(j.error||"error");return j.data||[];}
-async function apiSave(rec){const r=await fetch(API_URL,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({token:API_TOKEN,action:"save",record:rec})});const j=await r.json();if(!j.ok)throw new Error(j.error||"error");return j;}
-async function apiUpload(cliente,doc,nombre,mime,b64){const r=await fetch(API_URL,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({token:API_TOKEN,action:"upload",cliente:cliente,doc:doc,nombre:nombre,mime:mime,data:b64})});const j=await r.json();if(!j.ok)throw new Error(j.error||"error");return j;}
+const SB_URL = "https://ahfjstuwekcuxshclprl.supabase.co";
+const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFoZmpzdHV3ZWtjdXhzaGNscHJsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgwNDg2MjYsImV4cCI6MjEwMzYyNDYyNn0.lf1uw8WHPRy21GuYlK9NzeI5JgJK2be1LrODq22CodM";
+const UPLOAD_URL = "https://script.google.com/macros/s/AKfycbx6vvoulFJC3CqQ6XEMi_06bKYpEEe6E6Vn8y088PSCh-ZenOMdmH7bqfhbVGbuLcUkDw/exec";
+const UPLOAD_TOKEN = "EQUIPO-2026-bB2";
+const CLOUD = true;
+let SESION_PASS = "";
+async function sbRpc(fn,args,reintentos){reintentos=reintentos||3;let ultimo;for(let i=0;i<reintentos;i++){try{const r=await fetch(`${SB_URL}/rest/v1/rpc/${fn}`,{method:"POST",headers:{"Content-Type":"application/json","apikey":SB_KEY,"Authorization":"Bearer "+SB_KEY},body:JSON.stringify(args),cache:"no-store"});const txt=await r.text();let j=null;try{j=txt?JSON.parse(txt):null;}catch(e){}if(!r.ok){const m=(j&&(j.message||j.error||j.hint))||txt||("HTTP "+r.status);if(/acceso/i.test(m))throw new Error("ACCESO: tu contraseña no tiene permiso para esta acción.");throw new Error(m);}return j;}catch(e){ultimo=e;if(String(e.message).startsWith("ACCESO"))break;if(i<reintentos-1)await new Promise(res=>setTimeout(res,800*(i+1)));}}throw ultimo;}
+async function apiLogin(pass){return await sbRpc("sc_login",{p_pass:pass});}
+async function apiList(){const d=await sbRpc("sc_list",{p_pass:SESION_PASS});return Array.isArray(d)?d:[];}
+async function apiSave(rec){const nuevo=rec.id==null;const id=await sbRpc("sc_save",{p_pass:SESION_PASS,p_rec:rec},nuevo?1:3);return {ok:true,id:id};}
+async function apiBulk(recs){const n=await sbRpc("sc_bulk",{p_pass:SESION_PASS,p_recs:recs});return {ok:true,n:n};}
+async function apiUpload(cliente,doc,nombre,mime,b64){const r=await fetch(UPLOAD_URL,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({token:UPLOAD_TOKEN,action:"upload",cliente:cliente,doc:doc,nombre:nombre,mime:mime,data:b64})});const txt=await r.text();let j;try{j=JSON.parse(txt);}catch(e){throw new Error("Google Drive no respondió. Intenta de nuevo en un momento.");}if(!j.ok)throw new Error(j.error||"error");return j;}
 function comprimir(file,maxPx,q){maxPx=maxPx||1600;q=q||0.72;return new Promise((res,rej)=>{
   if(!/^image\//.test(file.type)){const fr=new FileReader();fr.onload=()=>res({b64:String(fr.result).split(",")[1],mime:file.type||"application/octet-stream",nombre:file.name||"archivo"});fr.onerror=rej;fr.readAsDataURL(file);return;}
   const fr=new FileReader();fr.onload=()=>{const img=new Image();img.onload=()=>{
@@ -40,7 +44,6 @@ function comprimir(file,maxPx,q){maxPx=maxPx||1600;q=q||0.72;return new Promise(
     const d=c.toDataURL("image/jpeg",q);
     res({b64:d.split(",")[1],mime:"image/jpeg",nombre:String(file.name||"escaneo").replace(/\.[^.]+$/,"")+".jpg"});
   };img.onerror=rej;img.src=String(fr.result);};fr.onerror=rej;fr.readAsDataURL(file);});}
-async function apiBulk(recs){const r=await fetch(API_URL,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({token:API_TOKEN,action:"bulk",records:recs})});const j=await r.json();if(!j.ok)throw new Error(j.error||"error");return j;}
 
 /* ---------- Catálogos ---------- */
 const EJEC_DEF=["Sara Alonso","Aracely de Ochoa","Omar Guevara","Mary Morales"];
@@ -226,12 +229,14 @@ function construirDashboard(registros,ancE,ancJ){const R=[];const cnt=fn=>regist
 function construirLibro(registros){const wb=XLSX.utils.book_new();const de=detallePor(registros,ESTATUS,r=>r.estatus);const ej=[...new Set(registros.map(r=>r.ejecutivo).filter(Boolean))].sort();const dj=detallePor(registros,ej,r=>r.ejecutivo);const wsDash=construirDashboard(registros,de.anchor,dj.anchor);const wsCli=XLSX.utils.json_to_sheet(registros.map(filaCliente));const wsDE=XLSX.utils.aoa_to_sheet(de.aoa.length?de.aoa:[["Sin datos"]]);const wsDJ=XLSX.utils.aoa_to_sheet(dj.aoa.length?dj.aoa:[["Sin datos"]]);XLSX.utils.book_append_sheet(wb,wsDash,"Dashboard");XLSX.utils.book_append_sheet(wb,wsCli,"Clientes");XLSX.utils.book_append_sheet(wb,wsDE,"DetalleEtapa");XLSX.utils.book_append_sheet(wb,wsDJ,"DetalleEjecutivo");return wb;}
 
 function Puerta({onEntrar}){
-  const [v,setV]=useState("");const [err,setErr]=useState("");
+  const [v,setV]=useState("");const [err,setErr]=useState("");const [verif,setVerif]=useState(false);
   const inpP="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-100";
-  const probar=()=>{const p=v.trim();
-    if(p===PASS_EDIT){onEntrar("edit");return;}
-    if(p===PASS_VER){onEntrar("ver");return;}
-    setErr("Contraseña incorrecta.");};
+  const probar=async()=>{const p=v.trim();if(!p||verif)return;setVerif(true);setErr("");
+    try{const nivel=await apiLogin(p);
+      if(nivel==="edit"||nivel==="ver"){SESION_PASS=p;onEntrar(nivel);return;}
+      setErr("Contraseña incorrecta.");
+    }catch(e){setErr("No se pudo conectar con el servidor: "+e.message);}
+    finally{setVerif(false);}};
   return (<div className="grid min-h-screen place-items-center px-5">
     <div className="w-full max-w-sm overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-sm">
       <div className="h-1 bg-amber-500"></div>
@@ -240,7 +245,7 @@ function Puerta({onEntrar}){
         <p className="mb-3 text-sm text-slate-500">Escribe tu contraseña para entrar.</p>
         <input type="password" value={v} autoFocus onChange={e=>{setV(e.target.value);setErr("");}} onKeyDown={e=>{if(e.key==="Enter")probar();}} className={inpP} placeholder="Contraseña"/>
         {err && <p className="mt-2 text-xs font-semibold text-red-600">{err}</p>}
-        <button onClick={probar} className="mt-3 w-full rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-800">Entrar</button>
+        <button onClick={probar} disabled={verif} className="mt-3 w-full rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-60">{verif?"Verificando…":"Entrar"}</button>
         <p className="mt-3 text-[11px] leading-relaxed text-slate-400">Con la contraseña de consulta puedes ver toda la información. Para capturar o modificar necesitas la contraseña de edición.</p>
       </div>
     </div>
@@ -364,7 +369,7 @@ function App(){
   const [sync,setSync]=useState("");
 
   useEffect(()=>{const t=setInterval(()=>setNow(Date.now()),30000);return()=>clearInterval(t);},[]);
-  useEffect(()=>{if(!CLOUD)return;setCargando(true);apiList().then(d=>{setRegistros(d.map(normEst));setCargando(false);}).catch(err=>{setCargando(false);setAviso({tipo:"error",texto:"No se pudo cargar de la nube: "+err.message});});},[]);
+  useEffect(()=>{if(!CLOUD||!modo)return;setCargando(true);setAviso(null);apiList().then(d=>{setRegistros(d.map(normEst));setCargando(false);}).catch(err=>{setCargando(false);setAviso({tipo:"error",texto:"No se pudo cargar de la nube: "+err.message});});},[modo]);
 
   function aplicarIA(res){setFEjec(res.ejec||"Todos");setFEstatus(res.estatus||"");setBusca((res.busca&&res.busca.length)?res.busca.join(" "):"");setFCli&&setFCli("Todos");}
   const ejecutivos=useMemo(()=>{const s=[...new Set(registros.map(r=>r.ejecutivo).filter(Boolean))].sort();return s.length?s:EJEC_DEF;},[registros]);
@@ -402,8 +407,8 @@ function App(){
   const devueltoClientes=devueltos.length;
   const devueltoEquipos=devueltos.reduce((s,r)=>s+unidades(r),0);
 
-  const guardar=reg=>{const id=reg.id||(Math.max(0,...registros.map(x=>x.id))+1);const saved=normEst({...reg,id});if((saved.estatuses||[]).includes("Entregado")){if(!saved.fechaEntregadoMarcado)saved.fechaEntregadoMarcado=HOY;}else{saved.fechaEntregadoMarcado="";}setRegistros(prev=>prev.some(r=>r.id===id)?prev.map(r=>r.id===id?saved:r):[...prev,saved]);setEditando(null);if(CLOUD){setSync("Guardando…");apiSave(saved).then(()=>setSync("Guardado en la nube ✓")).catch(()=>setSync("⚠ Error al guardar en la nube"));}};
-  const marcarLlamada=id=>{setRegistros(prev=>prev.map(r=>r.id===id?{...r,compromisoCumplido:true}:r));if(CLOUD){const rec=registros.find(r=>r.id===id);if(rec)apiSave({...rec,compromisoCumplido:true}).catch(()=>{});}};
+  const guardar=reg=>{const esNuevo=!reg.id||reg.id<0;const id=esNuevo?-Date.now():reg.id;const saved=normEst({...reg,id});if((saved.estatuses||[]).includes("Entregado")){if(!saved.fechaEntregadoMarcado)saved.fechaEntregadoMarcado=HOY;}else{saved.fechaEntregadoMarcado="";}setRegistros(prev=>prev.some(r=>r.id===id)?prev.map(r=>r.id===id?saved:r):[...prev,saved]);setEditando(null);if(CLOUD){setSync("Guardando…");apiSave(esNuevo?{...saved,id:null}:saved).then(j=>{if(esNuevo&&j&&j.id){setRegistros(prev=>prev.map(r=>r.id===id?{...r,id:j.id}:r));}setSync("Guardado en la nube ✓");}).catch(e=>setSync("⚠ Error al guardar: "+e.message+" · No cierres la página y vuelve a guardar."));}};
+  const marcarLlamada=id=>{setRegistros(prev=>prev.map(r=>r.id===id?{...r,compromisoCumplido:true}:r));if(CLOUD){const rec=registros.find(r=>r.id===id);if(rec&&rec.id>0)apiSave({...rec,compromisoCumplido:true}).catch(e=>setSync("⚠ Error al guardar: "+e.message));}};
   const cambiarEjec=v=>{setFEjec(v);setFCli("Todos");};
   function recargar(){setSync("Cargando…");apiList().then(d=>{setRegistros(d.map(normEst));setSync("Actualizado ✓");}).catch(e=>setSync("Error: "+e.message));}
   function subirTodo(){setSync("Subiendo…");apiBulk(registros).then(j=>setSync("Subido ✓ ("+(j.n!=null?j.n:registros.length)+" clientes)")).catch(e=>setSync("Error: "+e.message));}
@@ -442,13 +447,13 @@ function App(){
         {cargando && <div className="mb-4 rounded-lg bg-sky-50 text-sky-700 px-3 py-2 text-sm font-medium">Cargando datos de la nube…</div>}
         <div className="mb-5 rounded-xl border border-stone-200 bg-white p-3">
           <div className="flex flex-wrap items-center gap-2">
-            {puedeEditar && <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-stone-300 bg-white px-3 py-1.5 text-sm font-semibold text-slate-700 hover:bg-stone-50"><Icon name="upload" size={15}/> Subir Excel / CSV<input type="file" accept=".xlsx,.xls,.csv" onChange={onArchivo} className="hidden"/></label>}
+            {puedeEditar && !CLOUD && <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-stone-300 bg-white px-3 py-1.5 text-sm font-semibold text-slate-700 hover:bg-stone-50"><Icon name="upload" size={15}/> Subir Excel / CSV<input type="file" accept=".xlsx,.xls,.csv" onChange={onArchivo} className="hidden"/></label>}
             <button onClick={exportar} className="inline-flex items-center gap-1.5 rounded-lg border border-stone-300 bg-white px-3 py-1.5 text-sm font-semibold text-slate-700 hover:bg-stone-50"><Icon name="download" size={15}/> Exportar Excel</button>
-            <button onClick={()=>{setRegistros(demo(Date.now()).map(normEst));setFEjec("Todos");setFCli("Todos");setBusca("");setFEstatus("");setAviso(null);}} className="inline-flex items-center gap-1.5 rounded-lg border border-stone-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-500 hover:bg-stone-50">Datos de ejemplo</button>
-            <div className="flex flex-1 items-center gap-1.5 min-w-[240px]"><div className="flex flex-1 items-center gap-1.5 rounded-lg border border-stone-300 bg-white px-2.5"><Icon name="link" size={14} className="text-slate-400"/><input value={sheetUrl} onChange={e=>setSheetUrl(e.target.value)} placeholder="URL de Google Sheet…" className="flex-1 py-1.5 text-sm outline-none"/></div><button onClick={cargarSheet} className="rounded-lg bg-slate-900 px-3 py-1.5 text-sm font-semibold text-white hover:bg-slate-800">Cargar</button></div>
+            {!CLOUD && <button onClick={()=>{setRegistros(demo(Date.now()).map(normEst));setFEjec("Todos");setFCli("Todos");setBusca("");setFEstatus("");setAviso(null);}} className="inline-flex items-center gap-1.5 rounded-lg border border-stone-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-500 hover:bg-stone-50">Datos de ejemplo</button>}
+            {!CLOUD && <div className="flex flex-1 items-center gap-1.5 min-w-[240px]"><div className="flex flex-1 items-center gap-1.5 rounded-lg border border-stone-300 bg-white px-2.5"><Icon name="link" size={14} className="text-slate-400"/><input value={sheetUrl} onChange={e=>setSheetUrl(e.target.value)} placeholder="URL de Google Sheet…" className="flex-1 py-1.5 text-sm outline-none"/></div><button onClick={cargarSheet} className="rounded-lg bg-slate-900 px-3 py-1.5 text-sm font-semibold text-white hover:bg-slate-800">Cargar</button></div>}
           </div>
           {aviso && <div className={`mt-2 rounded-md px-3 py-1.5 text-xs font-medium ${aviso.tipo==="ok"?"bg-emerald-50 text-emerald-700":aviso.tipo==="error"?"bg-red-50 text-red-700":"bg-sky-50 text-sky-700"}`}>{aviso.texto}</div>}
-          {CLOUD && <div className="mt-2 flex flex-wrap items-center gap-2 border-t border-stone-100 pt-2"><span className="text-xs font-semibold text-slate-500">Nube:</span><button onClick={recargar} className="rounded-lg border border-stone-300 px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-stone-50">Recargar</button>{sync && <span className="text-xs font-medium text-slate-600">{sync}</span>}</div>}
+          {CLOUD && <div className="mt-2 flex flex-wrap items-center gap-2 border-t border-stone-100 pt-2"><span className="text-xs font-semibold text-slate-500">Nube (Supabase):</span><button onClick={recargar} className="rounded-lg border border-stone-300 px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-stone-50">Recargar</button>{sync && <span className="text-xs font-medium text-slate-600">{sync}</span>}</div>}
         </div>
 
         {urgentes.length>0 && <Banner urgentes={urgentes} now={now} onEdit={setEditando} onListo={marcarLlamada} hayVencidas={hayVencidas}/>}
@@ -747,5 +752,3 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
 </script>
 </body>
 </html>
-
-
